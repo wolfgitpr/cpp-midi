@@ -3,11 +3,14 @@
  * Copyright 2012-2015 Augustin Cavalier <waddlesplash>
  * All rights reserved. Distributed under the terms of the MIT license.
  */
+#include <algorithm>
 #include <cpp-midi/MidiFile.h>
 
 #include <cstdint>
+#include <cstring>
 #include <fstream>
 #include <map>
+
 namespace Midi
 {
     MidiEvent::MidiEvent() {
@@ -27,140 +30,136 @@ namespace Midi
     MidiEvent::~MidiEvent() = default;
 
     uint32_t MidiEvent::message() const {
-        union {
-            unsigned char data_as_bytes[4];
-            uint32_t data_as_uint32;
-        } u{};
+        uint32_t data = 0;
+        unsigned char data_as_bytes[4] = {0}; // Initialize the byte array to zero
 
         switch (fType) {
         case NoteOff:
-            u.data_as_bytes[0] = 0x80 | fVoice;
-            u.data_as_bytes[1] = fNote;
-            u.data_as_bytes[2] = fVelocity;
-            u.data_as_bytes[3] = 0;
+            data_as_bytes[0] = 0x80 | fVoice;
+            data_as_bytes[1] = fNote;
+            data_as_bytes[2] = fVelocity;
             break;
 
         case NoteOn:
-            u.data_as_bytes[0] = 0x90 | fVoice;
-            u.data_as_bytes[1] = fNote;
-            u.data_as_bytes[2] = fVelocity;
-            u.data_as_bytes[3] = 0;
+            data_as_bytes[0] = 0x90 | fVoice;
+            data_as_bytes[1] = fNote;
+            data_as_bytes[2] = fVelocity;
             break;
 
         case KeyPressure:
-            u.data_as_bytes[0] = 0xA0 | fVoice;
-            u.data_as_bytes[1] = fNote;
-            u.data_as_bytes[2] = fAmount;
-            u.data_as_bytes[3] = 0;
+            data_as_bytes[0] = 0xA0 | fVoice;
+            data_as_bytes[1] = fNote;
+            data_as_bytes[2] = fAmount;
             break;
 
         case ControlChange:
-            u.data_as_bytes[0] = 0xB0 | fVoice;
-            u.data_as_bytes[1] = fNumber;
-            u.data_as_bytes[2] = fValue;
-            u.data_as_bytes[3] = 0;
+            data_as_bytes[0] = 0xB0 | fVoice;
+            data_as_bytes[1] = fNumber;
+            data_as_bytes[2] = fValue;
             break;
 
         case ProgramChange:
-            u.data_as_bytes[0] = 0xC0 | fVoice;
-            u.data_as_bytes[1] = fNumber;
-            u.data_as_bytes[2] = 0;
-            u.data_as_bytes[3] = 0;
+            data_as_bytes[0] = 0xC0 | fVoice;
+            data_as_bytes[1] = fNumber;
             break;
 
         case ChannelPressure:
-            u.data_as_bytes[0] = 0xD0 | fVoice;
-            u.data_as_bytes[1] = fAmount;
-            u.data_as_bytes[2] = 0;
-            u.data_as_bytes[3] = 0;
+            data_as_bytes[0] = 0xD0 | fVoice;
+            data_as_bytes[1] = fAmount;
             break;
 
         case PitchWheel:
-            u.data_as_bytes[0] = 0xE0 | fVoice;
-            u.data_as_bytes[2] = fValue >> 7;
-            u.data_as_bytes[1] = fValue;
-            u.data_as_bytes[3] = 0;
+            data_as_bytes[0] = 0xE0 | fVoice;
+            data_as_bytes[1] = fValue & 0xFF;
+            data_as_bytes[2] = fValue >> 7;
             break;
 
         default:
             return 0;
         }
-        return u.data_as_uint32;
+
+        // Now we copy the bytes into the uint32_t value
+        std::memcpy(&data, data_as_bytes, sizeof(data));
+
+        return data;
     }
 
+
     void MidiEvent::setMessage(const uint32_t data) {
-        union {
-            uint32_t data_as_uint32;
-            unsigned char data_as_bytes[4];
-        } u{};
+        unsigned char data_as_bytes[4];
+        std::memcpy(data_as_bytes, &data, sizeof(data_as_bytes));
 
-        u.data_as_uint32 = data;
+        switch (data_as_bytes[0] & 0xF0) {
+        case 0x80: // NoteOff
+            setType(NoteOff);
+            setVoice(data_as_bytes[0] & 0x0F);
+            setNote(data_as_bytes[1]);
+            setVelocity(data_as_bytes[2]);
+            break;
 
-        switch (u.data_as_bytes[0] & 0xF0) {
-        case 0x80:
-            {
-                setType(NoteOff);
-                setVoice(u.data_as_bytes[0] & 0x0F);
-                setNote(u.data_as_bytes[1]);
-                setVelocity(u.data_as_bytes[2]);
-                return;
-            }
-        case 0x90:
-            {
-                setType(NoteOn);
-                setVoice(u.data_as_bytes[0] & 0x0F);
-                setNote(u.data_as_bytes[1]);
-                setVelocity(u.data_as_bytes[2]);
-                return;
-            }
-        case 0xA0:
-            {
-                setType(KeyPressure);
-                setVoice(u.data_as_bytes[0] & 0x0F);
-                setNote(u.data_as_bytes[1]);
-                setAmount(u.data_as_bytes[2]);
-                return;
-            }
-        case 0xB0:
-            {
-                setType(ControlChange);
-                setVoice(u.data_as_bytes[0] & 0x0F);
-                setNumber(u.data_as_bytes[1]);
-                setValue(u.data_as_bytes[2]);
-                return;
-            }
-        case 0xC0:
-            {
-                setType(ProgramChange);
-                setVoice(u.data_as_bytes[0] & 0x0F);
-                setNumber(u.data_as_bytes[1]);
-                return;
-            }
-        case 0xD0:
-            {
-                setType(ChannelPressure);
-                setVoice(u.data_as_bytes[0] & 0x0F);
-                setAmount(u.data_as_bytes[1]);
-                return;
-            }
-        case 0xE0:
-            {
-                setType(PitchWheel);
-                setVoice(u.data_as_bytes[0] & 0x0F);
-                setValue((u.data_as_bytes[2] << 7) | u.data_as_bytes[1]);
-                return;
-            }
-        default:;
+        case 0x90: // NoteOn
+            setType(NoteOn);
+            setVoice(data_as_bytes[0] & 0x0F);
+            setNote(data_as_bytes[1]);
+            setVelocity(data_as_bytes[2]);
+            break;
+
+        case 0xA0: // KeyPressure
+            setType(KeyPressure);
+            setVoice(data_as_bytes[0] & 0x0F);
+            setNote(data_as_bytes[1]);
+            setAmount(data_as_bytes[2]);
+            break;
+
+        case 0xB0: // ControlChange
+            setType(ControlChange);
+            setVoice(data_as_bytes[0] & 0x0F);
+            setNumber(data_as_bytes[1]);
+            setValue(data_as_bytes[2]);
+            break;
+
+        case 0xC0: // ProgramChange
+            setType(ProgramChange);
+            setVoice(data_as_bytes[0] & 0x0F);
+            setNumber(data_as_bytes[1]);
+            break;
+
+        case 0xD0: // ChannelPressure
+            setType(ChannelPressure);
+            setVoice(data_as_bytes[0] & 0x0F);
+            setAmount(data_as_bytes[1]);
+            break;
+
+        case 0xE0: // PitchWheel
+            setType(PitchWheel);
+            setVoice(data_as_bytes[0] & 0x0F);
+            setValue((data_as_bytes[2] << 7) | data_as_bytes[1]);
+            break;
+
+        default:
+            // Handle unknown/invalid data if necessary
+            break;
         }
     }
 
-    float MidiEvent::tempo() {
+    float MidiEvent::tempo() const {
         if ((fType != Meta) || (fNumber != Tempo)) {
             return -1;
         }
 
-        const auto *buffer = reinterpret_cast<unsigned char *>(fData.data());
+        // Ensure fData has at least 3 bytes of data for the tempo (MIDI tempo is 3 bytes)
+        if (fData.size() < 3) {
+            return -1; // Not enough data to extract tempo
+        }
+
+        // Use std::memcpy to safely copy the 3 bytes into an integer
+        unsigned char buffer[3];
+        std::memcpy(buffer, fData.data(), 3); // Assuming fData is a std::vector or similar container
+
+        // Combine the bytes into a 24-bit integer (big-endian format as per MIDI standard)
         const int32_t midi_tempo = (buffer[0] << 16) | (buffer[1] << 8) | buffer[2];
+
+        // Return tempo in BPM (beats per minute)
         return static_cast<float>(60000000.0 / midi_tempo);
     }
 
@@ -179,6 +178,8 @@ namespace Midi
         fResolution = 0;
         fFileFormat = 1;
     }
+
+    bool isGreaterThan(const MidiEvent *e1, const MidiEvent *e2) { return e1->tick() < e2->tick(); }
 
     MidiFile *MidiFile::oneTrackPerVoice() const {
         if (fFileFormat != 0) {
@@ -211,8 +212,7 @@ namespace Midi
                 continue;
             }
 
-            auto it = tracks.find(e->voice());
-            if (it == tracks.end()) {
+            if (auto it = tracks.find(e->voice()); it == tracks.end()) {
                 tracks[e->voice()] = ret->createTrack();
             }
 
@@ -226,29 +226,32 @@ namespace Midi
         return ret;
     }
 
-    bool isGreaterThan(const MidiEvent *e1, const MidiEvent *e2) {
-        const int32_t e1t = e1->tick();
-        const int32_t e2t = e2->tick();
-        return (e1t < e2t);
-    }
     void MidiFile::sort() {
         if (fDisableSort) {
             return;
         }
-        std::stable_sort(fEvents.begin(), fEvents.end(), isGreaterThan);
-        std::stable_sort(fTempoEvents.begin(), fTempoEvents.end(), isGreaterThan);
+
+        // Sort events by tick
+        fEvents.sort(isGreaterThan);
+        fTempoEvents.sort(isGreaterThan);
     }
 
-    void MidiFile::addEvent(int32_t tick, MidiEvent *e) {
+    void MidiFile::addEvent(const int32_t tick, MidiEvent *e) {
         e->setTick(tick);
         fEvents.push_back(e);
+
+        // Add tempo events to fTempoEvents
         if ((e->track() == 0) && (e->type() == MidiEvent::Meta) && (e->number() == MidiEvent::Tempo)) {
             fTempoEvents.push_back(e);
         }
+
+        // Sorting events after adding them
         sort();
     }
+
     void MidiFile::removeEvent(MidiEvent *e) {
         fEvents.remove(e);
+
         if ((e->track() == 0) && (e->type() == MidiEvent::Meta) && (e->number() == MidiEvent::Tempo)) {
             fTempoEvents.remove(e);
         }
@@ -280,17 +283,15 @@ namespace Midi
         return t;
     }
 
-    void MidiFile::removeTrack(int track) {
-        const auto it = std::find_if(fTracks.begin(), fTracks.end(), [track](const auto &t) { return t == track; });
-        if (it != fTracks.end()) {
+    void MidiFile::removeTrack(const int track) {
+        if (const auto it = std::find(fTracks.begin(), fTracks.end(), track); it != fTracks.end()) {
             fTracks.erase(it);
         }
     }
 
-    int32_t MidiFile::trackEndTick(int track) {
+    int32_t MidiFile::trackEndTick(const int track) {
         for (auto it = fEvents.rbegin(); it != fEvents.rend(); ++it) {
-            auto *e = *it;
-            if (e->track() == track) {
+            if (const auto *e = *it; e->track() == track) {
                 return e->tick();
             }
         }
@@ -394,14 +395,23 @@ namespace Midi
         addEvent(tick, e);
         return e;
     }
+
     MidiEvent *MidiFile::createTempoEvent(const int track, const int32_t tick, const float tempo) {
+        // Convert tempo to MIDI tempo format (microseconds per beat)
         const long midi_tempo = static_cast<long>(60000000.0 / tempo);
+
+        // Use unsigned char to avoid issues with signedness of 'char' across compilers
         std::vector<char> buffer(3, 0);
-        buffer[0] = static_cast<char>((midi_tempo >> 16) & 0xFF);
-        buffer[1] = static_cast<char>((midi_tempo >> 8) & 0xFF);
-        buffer[2] = static_cast<char>(midi_tempo & 0xFF);
+
+        // Ensure the buffer contains the 3 bytes of the MIDI tempo message
+        buffer[0] = static_cast<char>((midi_tempo >> 16) & 0xFF); // Highest byte
+        buffer[1] = static_cast<char>((midi_tempo >> 8) & 0xFF); // Middle byte
+        buffer[2] = static_cast<char>(midi_tempo & 0xFF); // Lowest byte
+
+        // Create the meta event with the tempo information
         return createMetaEvent(track, tick, MidiEvent::Tempo, buffer);
     }
+
     MidiEvent *MidiFile::createTimeSignatureEvent(const int track, const int32_t tick, const int numerator,
                                                   const int denominator) {
         auto *e = new MidiEvent();
@@ -451,26 +461,28 @@ namespace Midi
                     if (e->tick() >= tick) {
                         break;
                     }
-                    tempo_event_time += (static_cast<float>(e->tick() - tempo_event_tick) /
-                                         static_cast<float>(fResolution) / (tempo / 60));
+                    // Accumulate the time for each tempo event
+                    tempo_event_time += static_cast<float>(e->tick() - tempo_event_tick) /
+                        static_cast<float>(fResolution) * (tempo / 60.0f);
                     tempo_event_tick = e->tick();
                     tempo = e->tempo();
                 }
 
+                // Calculate the time from the current tick
                 float time = tempo_event_time +
-                    (static_cast<float>(tick - tempo_event_tick) / static_cast<float>(fResolution) / (tempo / 60));
+                    static_cast<float>(tick - tempo_event_tick) / static_cast<float>(fResolution) * (tempo / 60.0f);
                 return time;
             }
         case SMPTE24:
-            return static_cast<float>(tick / (fResolution * 24.0));
+            return static_cast<float>(tick) / (static_cast<float>(fResolution) * 24.0f);
         case SMPTE25:
-            return static_cast<float>(tick / (fResolution * 25.0));
+            return static_cast<float>(tick) / (static_cast<float>(fResolution) * 25.0f);
         case SMPTE30DROP:
-            return static_cast<float>(tick / (fResolution * 29.97));
+            return static_cast<float>(tick) / (static_cast<float>(fResolution) * 29.97f);
         case SMPTE30:
-            return static_cast<float>(tick / (fResolution * 30.0));
+            return static_cast<float>(tick) / (static_cast<float>(fResolution) * 30.0f);
         default:
-            return -1;
+            return -1.0f;
         }
     }
 
@@ -478,23 +490,25 @@ namespace Midi
         switch (fDivType) {
         case PPQ:
             {
-                float tempo_event_time = 0.0;
+                float tempo_event_time = 0.0f;
                 int32_t tempo_event_tick = 0;
-                float tempo = 120.0;
+                float tempo = 120.0f;
 
                 for (auto *e : fTempoEvents) {
                     const float next_tempo_event_time = tempo_event_time +
-                        (static_cast<float>(e->tick() - tempo_event_tick) / static_cast<float>(fResolution) /
-                         (tempo / 60));
-                    if (next_tempo_event_time >= time)
+                        (static_cast<float>(e->tick() - tempo_event_tick) / static_cast<float>(fResolution)) *
+                            (tempo / 60.0f);
+                    if (next_tempo_event_time >= time) {
                         break;
+                    }
                     tempo_event_time = next_tempo_event_time;
                     tempo_event_tick = e->tick();
                     tempo = e->tempo();
                 }
 
                 return tempo_event_tick +
-                    static_cast<int32_t>((time - tempo_event_time) * (tempo / 60) * static_cast<double>(fResolution));
+                    static_cast<int32_t>((time - tempo_event_time) * (tempo / 60.0f) *
+                                         static_cast<double>(fResolution));
             }
         case SMPTE24:
             return static_cast<int32_t>(time * static_cast<double>(fResolution) * 24.0);
@@ -514,15 +528,15 @@ namespace Midi
         case PPQ:
             return static_cast<float>(tick) / static_cast<float>(fResolution);
         case SMPTE24:
-            return static_cast<float>(tick / 24.0);
+            return static_cast<float>(tick) / 24.0f;
         case SMPTE25:
-            return static_cast<float>(tick / 25.0);
+            return static_cast<float>(tick) / 25.0f;
         case SMPTE30DROP:
-            return static_cast<float>(tick / 29.97);
+            return static_cast<float>(tick) / 29.97f;
         case SMPTE30:
-            return static_cast<float>(tick / 30.0);
+            return static_cast<float>(tick) / 30.0f;
         default:
-            return -1.0;
+            return -1.0f;
         }
     }
 
@@ -531,13 +545,13 @@ namespace Midi
         case PPQ:
             return static_cast<int32_t>(beat * static_cast<double>(fResolution));
         case SMPTE24:
-            return static_cast<int32_t>(beat * 24.0);
+            return static_cast<int32_t>(beat * 24.0f);
         case SMPTE25:
-            return static_cast<int32_t>(beat * 25.0);
+            return static_cast<int32_t>(beat * 25.0f);
         case SMPTE30DROP:
-            return static_cast<int32_t>(beat * 29.97);
+            return static_cast<int32_t>(beat * 29.97f);
         case SMPTE30:
-            return static_cast<int32_t>(beat * 30);
+            return static_cast<int32_t>(beat * 30.0f);
         default:
             return -1;
         }
@@ -547,68 +561,113 @@ namespace Midi
      * Helpers
      */
 
+#include <cstdint>
+#include <cstring>
+#include <fstream>
+
+    // Interpret two bytes as a signed 16-bit integer
     int16_t interpret_int16(const unsigned char *buffer) {
+        // Ensure correct sign extension for MSVC and MinGW compatibility
         return static_cast<int16_t>((static_cast<int16_t>(buffer[0]) << 8) | static_cast<int16_t>(buffer[1]));
     }
+
+    // Interpret two bytes as an unsigned 16-bit integer
     uint16_t interpret_uint16(const unsigned char *buffer) {
+        // Correct bitwise shifting for unsigned interpretation
         return (static_cast<uint16_t>(buffer[0]) << 8) | static_cast<uint16_t>(buffer[1]);
     }
+
+    // Read a 16-bit unsigned integer from the file stream
     uint16_t read_uint16(std::ifstream *in) {
         unsigned char buffer[2];
         in->read(reinterpret_cast<char *>(buffer), 2);
+        // Ensure the read operation was successful
+        if (!in->good()) {
+            throw std::ios_base::failure("Failed to read uint16");
+        }
         return interpret_uint16(buffer);
     }
+
+    // Write a 16-bit unsigned integer to the file stream
     void write_uint16(std::ofstream *out, const uint16_t value) {
         unsigned char buffer[2];
-        buffer[0] = static_cast<unsigned char>((value >> 8) & 0xFF);
-        buffer[1] = static_cast<unsigned char>(value & 0xFF);
+        buffer[0] = static_cast<unsigned char>((value >> 8) & 0xFF); // high byte
+        buffer[1] = static_cast<unsigned char>(value & 0xFF); // low byte
         out->write(reinterpret_cast<char *>(buffer), 2);
+        // Ensure the write operation was successful
+        if (!out->good()) {
+            throw std::ios_base::failure("Failed to write uint16");
+        }
     }
 
+    // Read a 32-bit unsigned integer from the file stream
     uint32_t read_uint32(std::ifstream *in) {
         unsigned char buffer[4];
-        in->read(reinterpret_cast<char *>(&buffer), 4);
+        in->read(reinterpret_cast<char *>(buffer), 4);
+        // Ensure the read operation was successful
+        if (!in->good()) {
+            throw std::ios_base::failure("Failed to read uint32");
+        }
+
+        // Handle the big-endian byte order correctly
         return (static_cast<uint32_t>(buffer[0]) << 24) | (static_cast<uint32_t>(buffer[1]) << 16) |
             (static_cast<uint32_t>(buffer[2]) << 8) | static_cast<uint32_t>(buffer[3]);
     }
+
+    // Write a 32-bit unsigned integer to the file stream
     void write_uint32(std::ofstream *out, const uint32_t value) {
         unsigned char buffer[4];
-        buffer[0] = static_cast<unsigned char>(value >> 24);
+        buffer[0] = static_cast<unsigned char>(value >> 24); // highest byte
         buffer[1] = static_cast<unsigned char>((value >> 16) & 0xFF);
         buffer[2] = static_cast<unsigned char>((value >> 8) & 0xFF);
-        buffer[3] = static_cast<unsigned char>(value & 0xFF);
+        buffer[3] = static_cast<unsigned char>(value & 0xFF); // lowest byte
         out->write(reinterpret_cast<char *>(buffer), 4);
+        // Ensure the write operation was successful
+        if (!out->good()) {
+            throw std::ios_base::failure("Failed to write uint32");
+        }
     }
 
+    // Read a variable-length quantity (VLQ) from the file stream
     uint32_t read_variable_length_quantity(std::ifstream &in) {
         unsigned char b;
         uint32_t value = 0;
-
         do {
             in.get(reinterpret_cast<char &>(b));
+            if (!in.good()) {
+                throw std::ios_base::failure("Failed to read VLQ byte");
+            }
             value = (value << 7) | (b & 0x7F);
         }
-        while ((b & 0x80) == 0x80 && in.good());
+        while ((b & 0x80) == 0x80); // Continue until the MSB is 0
 
         return value;
     }
 
+    // Write a variable-length quantity (VLQ) to the file stream
     void write_variable_length_quantity(std::ofstream &out, uint32_t value) {
         unsigned char buffer[4];
         int offset = 3;
 
         while (true) {
             buffer[offset] = static_cast<unsigned char>(value & 0x7F);
-            if (offset < 3)
-                buffer[offset] |= 0x80;
+            if (offset < 3) {
+                buffer[offset] |= 0x80; // Set MSB if there are more bytes
+            }
             value >>= 7;
 
-            if ((value == 0) || (offset == 0)) {
+            // Stop when no more bytes to write or offset reaches 0
+            if (value == 0 || offset == 0) {
                 break;
             }
             offset--;
         }
+
         out.write(reinterpret_cast<char *>(buffer) + offset, 4 - offset);
+        // Ensure the write operation was successful
+        if (!out.good()) {
+            throw std::ios_base::failure("Failed to write VLQ");
+        }
     }
 
     bool MidiFile::load(const std::filesystem::path &filename) {
@@ -628,12 +687,9 @@ namespace Midi
         chunk_size = read_uint32(&in);
         chunk_start = in.tellg();
 
-        /* check for the RMID variation on SMF */
-
+        // Check for RMID variation on SMF
         if (memcmp(chunk_id, reinterpret_cast<void const *>("RIFF"), 4) == 0) {
             in.read(reinterpret_cast<char *>(chunk_id), 4);
-            /* technically this one is a type id rather than a chunk id */
-
             if (memcmp(chunk_id, reinterpret_cast<void const *>("RMID"), 4) != 0) {
                 in.close();
                 fDisableSort = false;
@@ -654,6 +710,7 @@ namespace Midi
             chunk_start = in.tellg();
         }
 
+        // Main chunk processing
         if (memcmp(chunk_id, reinterpret_cast<void const *>("MThd"), 4) != 0) {
             in.close();
             fDisableSort = false;
@@ -664,45 +721,36 @@ namespace Midi
         number_of_tracks = read_uint16(&in);
         in.read(reinterpret_cast<char *>(division_type_and_resolution), 2);
 
+        // Interpret time division type
         switch (static_cast<signed char>(division_type_and_resolution[0])) {
         case SMPTE24:
-            {
-                fFileFormat = file_format;
-                fDivType = SMPTE24;
-                fResolution = division_type_and_resolution[1];
-                break;
-            }
+            fFileFormat = file_format;
+            fDivType = SMPTE24;
+            fResolution = division_type_and_resolution[1];
+            break;
         case SMPTE25:
-            {
-                fFileFormat = file_format;
-                fDivType = SMPTE25;
-                fResolution = division_type_and_resolution[1];
-                break;
-            }
+            fFileFormat = file_format;
+            fDivType = SMPTE25;
+            fResolution = division_type_and_resolution[1];
+            break;
         case SMPTE30DROP:
-            {
-                fFileFormat = file_format;
-                fDivType = SMPTE30DROP;
-                fResolution = division_type_and_resolution[1];
-                break;
-            }
+            fFileFormat = file_format;
+            fDivType = SMPTE30DROP;
+            fResolution = division_type_and_resolution[1];
+            break;
         case SMPTE30:
-            {
-                fFileFormat = file_format;
-                fDivType = SMPTE30;
-                fResolution = division_type_and_resolution[1];
-                break;
-            }
+            fFileFormat = file_format;
+            fDivType = SMPTE30;
+            fResolution = division_type_and_resolution[1];
+            break;
         default:
-            {
-                fFileFormat = file_format;
-                fDivType = PPQ;
-                fResolution = interpret_uint16(division_type_and_resolution);
-                break;
-            }
+            fFileFormat = file_format;
+            fDivType = PPQ;
+            fResolution = interpret_uint16(division_type_and_resolution);
+            break;
         }
 
-        /* forwards compatibility:  skip over any extra header data */
+        // Skip over extra header data
         in.seekg(chunk_start + chunk_size);
 
         while (number_of_tracks_read < number_of_tracks) {
@@ -723,6 +771,7 @@ namespace Midi
 
                     in.get(reinterpret_cast<char &>(status));
 
+                    // Handle running status
                     if ((status & 0x80) == 0x00) {
                         status = running_status;
                         in.seekg(static_cast<int>(in.tellg()) - 1);
@@ -738,23 +787,24 @@ namespace Midi
                     }
                     previous_pos = in.tellg();
 
+                    // Handle MIDI events
                     switch (status & 0xF0) {
                     case 0x80:
+                        // Note off event
                         {
                             int channel = status & 0x0F;
-                            char note;
+                            char note, velocity;
                             in.get(note);
-                            char velocity;
                             in.get(velocity);
                             createNoteOffEvent(track, tick, channel, note, velocity);
                             break;
                         }
                     case 0x90:
+                        // Note on/off event
                         {
                             int channel = status & 0x0F;
-                            char note;
+                            char note, velocity;
                             in.get(note);
-                            char velocity;
                             in.get(velocity);
                             if (velocity != 0) {
                                 createNoteOnEvent(track, tick, channel, note, velocity);
@@ -879,45 +929,49 @@ namespace Midi
             return false;
         }
 
+        // Remove the existing file if it exists
         if (std::filesystem::exists(filename)) {
             std::filesystem::remove(filename);
         }
 
-        std::ofstream out(filename, std::ios::binary);
-
+        std::ofstream out(filename, std::ios::binary); // Ensure binary mode
         if (!out.is_open()) {
             return false;
         }
 
+        // Write header chunk ("MThd")
         out.write("MThd", 4);
-        write_uint32(&out, 6);
+        write_uint32(&out, 6); // Header size
         write_uint16(&out, static_cast<uint16_t>(fFileFormat));
         write_uint16(&out, static_cast<uint16_t>(fTracks.size()));
 
+        // Write division type and resolution
         switch (fDivType) {
         case PPQ:
             write_uint16(&out, static_cast<uint16_t>(fResolution));
             break;
         default:
-            out.put(fDivType);
-            out.put(static_cast<char>(fResolution));
+            out.put(fDivType); // SMPTE types are written as 1 byte
+            out.put(static_cast<char>(fResolution)); // Resolution for SMPTE
             break;
         }
 
+        // Write each track chunk
         for (const int curTrack : fTracks) {
-            out.write("MTrk", 4);
+            out.write("MTrk", 4); // Track ID
 
             const auto track_size_offset = static_cast<int32_t>(out.tellp());
-            write_uint32(&out, 0);
+            write_uint32(&out, 0); // Placeholder for track size
 
             const auto track_start_offset = static_cast<int32_t>(out.tellp());
 
             int32_t previous_tick = 0;
 
+            // Get events for the current track
             std::vector<MidiEvent *> eventsForTrk = eventsForTrack(curTrack);
             for (auto *e : eventsForTrk) {
                 const int32_t tick = e->tick();
-                write_variable_length_quantity(out, tick - previous_tick);
+                write_variable_length_quantity(out, tick - previous_tick); // Delta time
 
                 switch (e->type()) {
                 case MidiEvent::NoteOff:
@@ -975,7 +1029,7 @@ namespace Midi
                     {
                         const int data_length = static_cast<int>(e->data().size());
                         const auto data = reinterpret_cast<unsigned char *>(e->data().data());
-                        out.put(static_cast<char>(0xFF));
+                        out.put(static_cast<char>(0xFF)); // Meta event type
                         out.put(static_cast<char>(e->number() & 0x7F));
                         write_variable_length_quantity(out, data_length);
                         out.write(reinterpret_cast<char *>(data), data_length);
@@ -988,15 +1042,17 @@ namespace Midi
                 previous_tick = tick;
             }
 
+            // End of track event
             write_variable_length_quantity(out, trackEndTick(curTrack) - previous_tick);
-            out.write("\xFF\x2F\x00", 3);
+            out.write("\xFF\x2F\x00", 3); // End of track meta event
 
             const int32_t track_end_offset = static_cast<int32_t>(out.tellp());
 
+            // Update track size field
             out.seekp(track_size_offset);
             write_uint32(&out, track_end_offset - track_start_offset);
 
-            out.seekp(track_end_offset);
+            out.seekp(track_end_offset); // Return to the end of the track
         }
 
         out.close();

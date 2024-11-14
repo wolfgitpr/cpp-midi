@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <list>
+#include <vector>
 
 #include <cpp-midi/MidiGlobal.h>
 
@@ -69,7 +70,7 @@ namespace Midi
         inline int value() const { return fValue; }
         inline void setValue(const int value) { fValue = value; }
 
-        float tempo();
+        float tempo() const;
 
         inline int numerator() const { return fNumerator; }
         inline void setNumerator(const int numerator) { fNumerator = numerator; }
