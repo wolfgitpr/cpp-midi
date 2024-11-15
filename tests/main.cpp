@@ -13,7 +13,7 @@ size_t calculateFileHash(const std::filesystem::path &filePath) {
         return 0;
     }
 
-    std::hash<std::string> hashFn;
+    constexpr std::hash<std::string> hashFn;
     std::string content;
     char buffer[1024];
     while (file.read(buffer, sizeof(buffer)) || file.gcount() > 0) {

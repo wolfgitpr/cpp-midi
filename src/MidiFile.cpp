@@ -315,6 +315,7 @@ namespace Midi
         addEvent(tick, e);
         return e;
     }
+
     MidiEvent *MidiFile::createNoteOnEvent(const int track, const int32_t tick, const int voice, const int note,
                                            const int velocity) {
         auto *e = new MidiEvent();
@@ -326,6 +327,7 @@ namespace Midi
         addEvent(tick, e);
         return e;
     }
+
     MidiEvent *MidiFile::createKeyPressureEvent(const int track, const int32_t tick, const int voice, const int note,
                                                 const int amount) {
         auto *e = new MidiEvent();
@@ -337,6 +339,7 @@ namespace Midi
         addEvent(tick, e);
         return e;
     }
+
     MidiEvent *MidiFile::createChannelPressureEvent(const int track, const int32_t tick, const int voice,
                                                     const int amount) {
         auto *e = new MidiEvent();
@@ -347,6 +350,7 @@ namespace Midi
         addEvent(tick, e);
         return e;
     }
+
     MidiEvent *MidiFile::createControlChangeEvent(const int track, const int32_t tick, const int voice,
                                                   const int number, const int value) {
         auto *e = new MidiEvent();
@@ -358,6 +362,7 @@ namespace Midi
         addEvent(tick, e);
         return e;
     }
+
     MidiEvent *MidiFile::createProgramChangeEvent(const int track, const int32_t tick, const int voice,
                                                   const int number) {
         auto *e = new MidiEvent();
@@ -368,6 +373,7 @@ namespace Midi
         addEvent(tick, e);
         return e;
     }
+
     MidiEvent *MidiFile::createPitchWheelEvent(const int track, const int32_t tick, const int voice, const int value) {
         auto *e = new MidiEvent();
         e->setType(MidiEvent::PitchWheel);
@@ -377,6 +383,7 @@ namespace Midi
         addEvent(tick, e);
         return e;
     }
+
     MidiEvent *MidiFile::createSysexEvent(const int track, const int32_t tick, const std::vector<char> &data) {
         auto *e = new MidiEvent();
         e->setType(MidiEvent::SysEx);
@@ -385,6 +392,7 @@ namespace Midi
         addEvent(tick, e);
         return e;
     }
+
     MidiEvent *MidiFile::createMetaEvent(const int track, const int32_t tick, const int number,
                                          const std::vector<char> &data) {
         auto *e = new MidiEvent();
@@ -414,15 +422,14 @@ namespace Midi
 
     MidiEvent *MidiFile::createTimeSignatureEvent(const int track, const int32_t tick, const int numerator,
                                                   const int denominator) {
-        auto *e = new MidiEvent();
-        e->setType(MidiEvent::Meta);
-        e->setNumber(MidiEvent::TimeSignature);
-        e->setTrack(track);
-        e->setNumerator(numerator);
-        e->setDenominator(denominator);
-        addEvent(tick, e);
-        return e;
+        std::vector<char> buf(4, 0);
+        buf[0] = static_cast<char>(numerator);
+        buf[1] = static_cast<char>(denominator);
+        buf[2] = 24;
+        buf[3] = 8;
+        return createMetaEvent(track, tick, MidiEvent::TimeSignature, buf);
     }
+
     MidiEvent *MidiFile::createLyricEvent(const int track, const int32_t tick, const std::vector<char> &text) {
         auto *e = new MidiEvent();
         e->setType(MidiEvent::Meta);
@@ -432,6 +439,7 @@ namespace Midi
         addEvent(tick, e);
         return e;
     }
+
     MidiEvent *MidiFile::createMarkerEvent(const int track, const int32_t tick, const std::vector<char> &text) {
         auto *e = new MidiEvent();
         e->setType(MidiEvent::Meta);
@@ -441,6 +449,7 @@ namespace Midi
         addEvent(tick, e);
         return e;
     }
+
     MidiEvent *MidiFile::createVoiceEvent(const int track, const int32_t tick, const uint32_t data) {
         auto *e = new MidiEvent();
         e->setTrack(track);
@@ -457,7 +466,7 @@ namespace Midi
                 int32_t tempo_event_tick = 0;
                 float tempo = 120.0;
 
-                for (auto *e : fTempoEvents) {
+                for (const auto *e : fTempoEvents) {
                     if (e->tick() >= tick) {
                         break;
                     }
@@ -469,7 +478,7 @@ namespace Midi
                 }
 
                 // Calculate the time from the current tick
-                float time = tempo_event_time +
+                const float time = tempo_event_time +
                     static_cast<float>(tick - tempo_event_tick) / static_cast<float>(fResolution) * (tempo / 60.0f);
                 return time;
             }
@@ -494,7 +503,7 @@ namespace Midi
                 int32_t tempo_event_tick = 0;
                 float tempo = 120.0f;
 
-                for (auto *e : fTempoEvents) {
+                for (const auto *e : fTempoEvents) {
                     const float next_tempo_event_time = tempo_event_time +
                         (static_cast<float>(e->tick() - tempo_event_tick) / static_cast<float>(fResolution)) *
                             (tempo / 60.0f);
@@ -969,7 +978,7 @@ namespace Midi
 
             // Get events for the current track
             std::vector<MidiEvent *> eventsForTrk = eventsForTrack(curTrack);
-            for (auto *e : eventsForTrk) {
+            for (const auto *e : eventsForTrk) {
                 const int32_t tick = e->tick();
                 write_variable_length_quantity(out, tick - previous_tick); // Delta time
 
