@@ -1019,20 +1019,22 @@ namespace Midi
                 case MidiEvent::SysEx:
                     {
                         const int data_length = static_cast<int>(e->data().size());
-                        const auto data = reinterpret_cast<unsigned char *>(e->data().data());
+                        const std::vector<char> &dataVec = e->data();
+                        const auto data = dataVec.data();
                         out.put(static_cast<char>(data[0]));
                         write_variable_length_quantity(out, data_length - 1);
-                        out.write(reinterpret_cast<char *>(data) + 1, data_length - 1);
+                        out.write(reinterpret_cast<const char *>(data) + 1, data_length - 1);
                         break;
                     }
                 case MidiEvent::Meta:
                     {
                         const int data_length = static_cast<int>(e->data().size());
-                        const auto data = reinterpret_cast<unsigned char *>(e->data().data());
+                        const std::vector<char> &dataVec = e->data();
+                        const auto data = dataVec.data();
                         out.put(static_cast<char>(0xFF)); // Meta event type
                         out.put(static_cast<char>(e->number() & 0x7F));
                         write_variable_length_quantity(out, data_length);
-                        out.write(reinterpret_cast<char *>(data), data_length);
+                        out.write(data, data_length);
                         break;
                     }
                 default:
