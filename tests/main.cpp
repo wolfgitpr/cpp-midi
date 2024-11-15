@@ -4,7 +4,7 @@
 #include <iostream>
 #include <string>
 
-#include <cpp-midi/MidiFile.h>
+#include <wolf-midi/MidiFile.h>
 
 size_t calculateFileHash(const std::filesystem::path &filePath) {
     std::ifstream file(filePath, std::ios::binary);

@@ -2,16 +2,16 @@
 # Project
 # ----------------------------------
 cmake_minimum_required(VERSION 3.17)
-project(cpp-midi VERSION 1.0.0.0 LANGUAGES CXX)
+project(wolf-midi VERSION 1.0.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
 # ----------------------------------
 # Build Options
 # ----------------------------------
-option(CPP_MIDI_BUILD_STATIC "Build static library" OFF)
-option(CPP_MIDI_BUILD_TESTS "Build test cases" OFF)
-option(CPP_MIDI_INSTALL "Install library" ON)
+option(WOLF_MIDI_BUILD_STATIC "Build static library" OFF)
+option(WOLF_MIDI_BUILD_TESTS "Build test cases" OFF)
+option(WOLF_MIDI_INSTALL "Install library" ON)
 
 # ----------------------------------
 # CMake Settings
@@ -39,7 +39,7 @@ if (MSVC)
     endif ()
 endif ()
 
-if (CPP_MIDI_INSTALL)
+if (WOLF_MIDI_INSTALL)
     include(GNUInstallDirs)
     include(CMakePackageConfigHelpers)
 endif ()
@@ -49,18 +49,18 @@ endif ()
 include_directories(include)
 file(GLOB_RECURSE _src include/*.h src/*.h src/*.cpp src/*/*.h src/*/*.cpp)
 
-if(CPP_MIDI_BUILD_STATIC)
+if(WOLF_MIDI_BUILD_STATIC)
     add_library(${PROJECT_NAME} STATIC)
-    target_compile_definitions(${PROJECT_NAME} PUBLIC CPP_MIDI_STATIC)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC WOLF_MIDI_STATIC)
 else()
     add_library(${PROJECT_NAME} SHARED)
 endif()
-target_compile_definitions(${PROJECT_NAME} PRIVATE CPP_MIDI_LIBRARY)
+target_compile_definitions(${PROJECT_NAME} PRIVATE WOLF_MIDI_LIBRARY)
 
 target_sources(${PROJECT_NAME} PRIVATE ${_src})
 add_library(${PROJECT_NAME}::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
-if (CPP_MIDI_BUILD_TESTS)
+if (WOLF_MIDI_BUILD_TESTS)
     add_subdirectory(tests)
 endif ()
 
@@ -84,7 +84,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 # ----------------------------------
 # install
 # ----------------------------------
-if (CPP_MIDI_INSTALL)
+if (WOLF_MIDI_INSTALL)
     target_include_directories(${PROJECT_NAME} PUBLIC
             $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
     )

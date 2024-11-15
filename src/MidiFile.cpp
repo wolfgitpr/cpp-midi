@@ -4,7 +4,7 @@
  * All rights reserved. Distributed under the terms of the MIT license.
  */
 #include <algorithm>
-#include <cpp-midi/MidiFile.h>
+#include <wolf-midi/MidiFile.h>
 
 #include <cstdint>
 #include <cstring>

@@ -10,11 +10,11 @@
 #include <list>
 #include <vector>
 
-#include <cpp-midi/MidiGlobal.h>
+#include <wolf-midi/MidiGlobal.h>
 
 namespace Midi
 {
-    class CPP_MIDI_EXPORT MidiEvent {
+    class WOLF_MIDI_EXPORT MidiEvent {
     public:
         enum EventType {
             Invalid = -1,
@@ -102,7 +102,7 @@ namespace Midi
         int fTrackNumber;
     };
 
-    class CPP_MIDI_EXPORT MidiFile {
+    class WOLF_MIDI_EXPORT MidiFile {
     public:
         enum DivisionType {
             /* These types match the MIDI values for them.

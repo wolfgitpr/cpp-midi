@@ -1,4 +1,4 @@
-# cpp-midi
+# wolf-midi
 
 ## Intro
 
@@ -9,12 +9,12 @@ Only provides the most basic MIDI file read and write functions.
 ## Install
 
 ```bash
-vcpkg install cpp-midi
+vcpkg install wolf-midi
 ```
 
 ```cmake
-find_package(cpp-midi)
-target_link_libraries(${PROJECT_NAME} PRIVATE cpp-midi::cpp-midi)
+find_package(wolf-midi)
+target_link_libraries(${PROJECT_NAME} PRIVATE wolf-midi::wolf-midi)
 ```
 
 ## Usage
